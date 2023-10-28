@@ -1,14 +1,6 @@
-import urllib
-import csv
-import logging
-from furl import furl
 from IPy import IP
-from validation import ValidationError
-from traceback import format_exception
-import six
-
-
-from grab.spider import Spider, Task
+from furl import furl
+from grab.spider import Spider
 
 
 class BaseSpider(Spider):
@@ -18,14 +10,11 @@ class BaseSpider(Spider):
 
     validation_text = None
 
-    def __init__(self, *args, **kwargs):
-        super(BaseSpider, self).__init__(*args, **kwargs)
-        self._prepare_requests_left = 0
-
     def create_grab_instance(self, **kwargs):
-        g = super(BaseSpider, self).create_grab_instance(**kwargs)
-        g.setup(timeout=20)
-        return g
+        # Переименование переменной для более информативного понимания ее предназначения
+        grab_instance = super(BaseSpider, self).create_grab_instance(**kwargs)
+        grab_instance.setup(timeout=20)
+        return grab_instance
 
     def check_valid_domain(self, task, url):
         if task.name in self.task_to_ignore_check_domains:
@@ -36,6 +25,8 @@ class BaseSpider(Spider):
         try:
             IP(hostname)
         except ValueError:
+            # Если возникает ошибка ValueError, следует лучше обработать эту ситуацию
+            # Получение последних двух частей имени хоста для сравнения
             real_host = '.'.join(hostname.split('.')[-2:])
             is_valid_host = (real_host in self.valid_hosts)
 

@@ -1,4 +1,4 @@
-import re
+import logging
 from functools import wraps
 
 
@@ -21,45 +21,40 @@ def _validate(validator, grab, task):
 def validate_response(validator=None, save_path=None, raise_exception=True):
     def wrap(fn):
         @wraps(fn)
-        def wraper(self, grab, task):
+        def wrapper(self, grab, task):
+            logger = logging.getLogger(__name__)
+
             if not self.check_valid_domain(task, grab.doc.url):
-                print('Redirect to another domain [task {} -> {}]'.format(task, grab.doc.url))
+                logger.info('Redirect to another domain [task %s -> %s]', task, grab.doc.url)
                 return
 
             if grab.doc.code in [404]:
                 return
 
-            _validator = validator
-
-            if not _validator:
-                if hasattr(self, 'validation_text'):
-                    _validator = getattr(self, 'validation_text')
-                if hasattr(self, 'validator'):
-                    _validator = getattr(self, 'validator')
-            else:
-                _validator = _validator
+            _validator = validator or getattr(self, 'validation_text', None) or getattr(self, 'validator', None)
 
             if not isinstance(_validator, list):
                 _validator = [_validator]
 
-            if True not in [_validate(v, grab, task) for v in _validator]:
+            if not any(_validate(v, grab, task) for v in _validator):
                 if grab.doc.code in [301, 302]:
-                    print('Invalid response: code=%s, url=%s -> %s' % (
-                        grab.doc.code, task.url, grab.doc.headers['Location']))
+                    logger.info('Invalid response: code=%s, url=%s -> %s',
+                                grab.doc.code, task.url, grab.doc.headers['Location'])
                 else:
-                    print('Invalid response: code=%s, url=%s' % (grab.doc.code, task.url))
+                    logger.info('Invalid response: code=%s, url=%s', grab.doc.code, task.url)
 
                 if not raise_exception:
                     return
 
-                raise ValidationError('invalid response')
+                raise ValidationError('Invalid response')
 
             try:
                 for task in fn(self, grab, task) or ():
                     yield task
-            except:
+            except Exception as e:
+                logger.error('Error in the decorated function: %s', str(e))
                 raise
 
-        return wraper
+        return wrapper
 
     return wrap
